@@ -21,6 +21,9 @@
 #    source directory to before each compilation.
 # 7. Create one or more projects in your USER directory.  The format for a
 #    project can be found just after the configuration settings.
+#    Note: If you didn't let rebuild.py create the directory for you, you need
+#    to create a CATEGORY file in it (contents are unimportant) so that
+#    rebuild.py does not consider it a single project.
 # 8. Run rebuild.py to build your projects.
 # 9. Fix the inevitable errors and return to step 8 until it actually *does*
 #    work.
@@ -39,18 +42,30 @@ sys.exit(3595)
 BASE = os.path.abspath(".")
 # (Yes, os.getcwd() would work identically here for the default behaviour, but
 #  this format is a bit more intuitive if you decide to modify it.)
+os.chdir(BASE)
 
 # Base directory for your projects.  DO NOT use one of MCP's own subdirectories
 # for this!
 # The format of this directory's contents is described just after the config
 # settings.
 USER = os.path.join(BASE, "user_src")
-os.makedirs(USER)
+try:
+    os.makedirs(USER)
+except OSError:
+    pass # Most likely "already exists"
+else:
+    # Touch the CATEGORY file.
+    with open(os.path.join(USER, "CATEGORY"), "w") as catfile:
+        catfile.write("This is a placeholder file to mark this directory as a "
+                      "category, not a project.")
 
 # Where your projects' packages will go when they are created.  MCP's
 # subdirectories could be used here, but are not recommended.
 TARGET = os.path.join(BASE, "user_target")
-os.makedirs(TARGET)
+try:
+    os.makedirs(TARGET)
+except OSError:
+    pass # Most likely "already exists"
 
 # Original source bundle, used to reset to a clean state before installing
 # user files.
@@ -64,16 +79,18 @@ SOURCE_BUNDLE = os.path.join(BASE, "source.tbz2")
 # THIS WILL BE NUKED FROM ORBIT EACH RUN.  All contents will be lost.
 # A clean copy will then be restored from SOURCE_BUNDLE.  If SOURCE_BUNDLE does
 # not exist, the script will offer to create it from a clean MCP_SRC.
-MCP_SRC = os.path.join(BASE, "src")
+# The _REL version is used for bundling, to avoid confusing tar.
+MCP_SRC_REL = "src"
+MCP_SRC = os.path.join(BASE, MCP_SRC_REL)
 # The obvious subdirectories.
 MCP_SRC_CLIENT = os.path.join(MCP_SRC, "minecraft")
 MCP_SRC_SERVER = os.path.join(MCP_SRC, "minecraft_server")
 
 # How to create the bundle.
-BUNDLE_CMD = "tar -cvjf %(SOURCE_BUNDLE)s %(MCP_SRC)s" % vars()
+BUNDLE_CMD = "tar -cjf %(SOURCE_BUNDLE)s %(MCP_SRC_REL)s" % vars()
 
 # How to extract the bundle.
-EXTRACT_CMD = "tar -xvjf %(SOURCE_BUNDLE)s" % vars()
+EXTRACT_CMD = "tar -xjf %(SOURCE_BUNDLE)s" % vars()
 
 # MCP's bin directory; this probably shouldn't be changed.
 # This is the directory MCP will obfuscate from.
@@ -107,6 +124,7 @@ positive = itertools.count(1)      # Returns -1, -2, -3, etc.
 RECOMPILE_FAILED   = positive.next()
 BIN_INSTALL_FAILED = positive.next()
 REOBFUSCATE_FAILED = positive.next()
+PACKAGE_FAILED     = positive.next()
 
 
 
@@ -153,14 +171,15 @@ class Project(object):
     def __init__(self, directory):
         self.dir = directory
 
-        self.name = get_config("PROJECT_NAME") or os.path.basename(directory)
-        self.version = get_config("VERSION")
-        self.package_name = get_config("PACKAGE_NAME")
-        self.hide_source = get_config("HIDE_SOURCE", is_boolean=True)
-        self.package_command = get_config("PACKAGE_COMMAND")
+        self.name = self.get_config("PROJECT_NAME") \
+                    or os.path.basename(directory)
+        self.version = self.get_config("VERSION")
+        self.package_name = self.get_config("PACKAGE_NAME")
+        self.hide_source = self.get_config("HIDE_SOURCE", is_boolean=True)
+        self.package_command = self.get_config("PACKAGE_COMMAND")
 
     def get_config(self, setting, is_boolean=False):
-        filename = os.path.join(directory, "conf", setting)
+        filename = os.path.join(self.dir, "conf", setting)
         exists = os.path.isfile(filename)
 
         if is_boolean:
@@ -204,32 +223,39 @@ class Project(object):
                 del subdirs[:]
 
     def copy_files(self, source, dest, failcode):
-        exit = subprocess.call("cp -r %s/* %s" % (source, dest))
+        exit = subprocess.call("cp -r %s/* %s" % (source, dest), shell=True)
         if exit != 0:
             print "While processing project %s:" % self.name
-            print "Unable to copy files from %s to %s.  Aborting." %
+            print "Unable to copy files from %s to %s.  Aborting." % \
                                           (source, dest)
             sys.exit(failcode)
 
     def install(self):
         """Installs this project into MCP's source."""
+        did_something = False
+
         src = os.path.join(self.dir, "src")
         if os.path.isdir(src):
             # Common code into both sides first, so it can be overridden.
             common = os.path.join(src, "common")
-            if os.path.isdir(common):
+            if os.path.isdir(common) and os.listdir(common):
                 self.copy_files(common, MCP_SRC_CLIENT, SRC_INSTALL_FAILED)
                 self.copy_files(common, MCP_SRC_SERVER, SRC_INSTALL_FAILED)
+                did_something = True
 
             # Then client code.
             client = os.path.join(src, "client")
-            if os.path.isdir(client):
+            if os.path.isdir(client) and os.listdir(client):
                 self.copy_files(client, MCP_SRC_CLIENT, SRC_INSTALL_FAILED)
+                did_something = True
 
             # And finally server code.
             server = os.path.join(src, "server")
-            if os.path.isdir(server):
+            if os.path.isdir(server) and os.listdir(server):
                 self.copy_files(server, MCP_SRC_SERVER, SRC_INSTALL_FAILED)
+                did_something = True
+
+        return did_something
 
     def install_precompiled(self):
         """Installs this project's precompiled code into MCP's classes.
@@ -242,23 +268,30 @@ class Project(object):
            IC2 (which I compile against) so that it reobfuscates happily
            without having to actually solve decompilation issues.
         """
+        did_something = False
+
         bin = os.path.join(self.dir, "bin")
         if os.path.isdir(bin):
             # Common classes into both sides first, so it can be overridden.
             common = os.path.join(bin, "common")
-            if os.path.isdir(common):
+            if os.path.isdir(common) and os.listdir(common):
                 self.copy_files(common, MCP_BIN_CLIENT, BIN_INSTALL_FAILED)
                 self.copy_files(common, MCP_BIN_SERVER, BIN_INSTALL_FAILED)
+                did_something = True
 
             # Then client classes.
             client = os.path.join(bin, "client")
-            if os.path.isdir(client):
+            if os.path.isdir(client) and os.listdir(client):
                 self.copy_files(client, MCP_BIN_CLIENT, BIN_INSTALL_FAILED)
+                did_something = True
 
             # And finally server classes.
             server = os.path.join(bin, "server")
-            if os.path.isdir(server):
+            if os.path.isdir(server) and os.listdir(server):
                 self.copy_files(server, MCP_BIN_SERVER, BIN_INSTALL_FAILED)
+                did_something = True
+
+        return did_something
 
     def get_package_file(self, server=False):
         if self.package_name is not None:
@@ -297,9 +330,9 @@ class Project(object):
            This method does understand Minecraft's obfuscation.
         """
         if server:
-            obfuscation = self.server_obfuscation
+            obfuscation = cls.server_obfuscation
         else:
-            obfuscation = self.client_obfuscation
+            obfuscation = cls.client_obfuscation
 
         classes = []
         for file in files:
@@ -315,18 +348,21 @@ class Project(object):
 
             classes.append(identifier + ".class")
 
+        return classes
+
 
     def package(self):
         """Packages this project's files."""
-        def call_or_die(cmd, shell):
+        def call_or_die(cmd, shell=False):
             exit = subprocess.call(cmd, shell=shell)
             if exit != 0:
                 print "Command failed: %s" % cmd
                 print "Failed to package project %s.  Aborting." % project.name
-                sys.exit(PROJECT_PACKAGE_FAILED)
+                sys.exit(PACKAGE_FAILED)
 
         if project.package_command is not None:
             call_or_die(project.package_command, shell=True)
+            return True
         else:
             ## Collect and package the matching .class files for this project.
             # Start by building a list of all of the source files of each type.
@@ -348,10 +384,8 @@ class Project(object):
             client_classes = self.map_to_class(client_sources)
             server_classes = self.map_to_class(server_sources, server=True)
 
-            # Move into the right directory for jar-ing the classes.
-            os.chdir(MCP_REOBF_CLIENT)
-
             # Package up the client files.
+            os.chdir(MCP_REOBF_CLIENT)
             client_package = self.get_package_file()
             client_created = False
             if client_classes:
@@ -359,14 +393,17 @@ class Project(object):
                 client_created = True
 
             # And then the server files.
+            os.chdir(MCP_REOBF_SERVER)
             server_package = self.get_package_file(server=True)
             server_created = False
             if server_classes:
                 call_or_die(["jar", "-cf", server_package] + server_classes)
+                server_created = True
 
             # If we haven't created either package yet, we won't, so bail out.
             if not (client_created or server_created):
-                return
+                print "Nothing to package."
+                return False
 
 
             ## Collect and package resource files.
@@ -397,11 +434,11 @@ class Project(object):
             ## Collect and package source files
             # Unless we shouldn't, in which case we're done.
             if self.hide_source:
-                return
+                return True
 
             # Common first, so they can be overridden.
             common_source = os.path.join(self.dir, "src", "common")
-            if os.path.isdir(common_source):
+            if os.path.isdir(common_source) and os.listdir(common_source):
                 # To package these, we just change to the appropriate directory
                 # and let the shell and jar command find everything in it.
                 os.chdir(common_source)
@@ -411,23 +448,27 @@ class Project(object):
                     call_or_die("jar -uf %s *" % server_package, shell=True)
 
             client_source = os.path.join(self.dir, "src", "client")
-            if os.path.isdir(client_source):
+            if os.path.isdir(client_source) and os.listdir(client_source):
                 os.chdir(client_source)
                 if client_created:
                     call_or_die("jar -uf %s *" % client_package, shell=True)
 
             server_source = os.path.join(self.dir, "src", "server")
-            if os.path.isdir(server_source):
+            if os.path.isdir(server_source) and os.listdir(server_source):
                 os.chdir(server_source)
                 if server_created:
                     call_or_die("jar -uf %s *" % server_package, shell=True)
 
+            return True
+
 
 print "STEP 1: Cleaning MCP's source directory."
 if not os.path.exists(SOURCE_BUNDLE):
-    print "Source bundle not found.  Is MCP's source directory clean? (y/N)",
-    answer = sys.stdin.readline()
-    if answer.lower().startswith("y"):
+    # We want this without a newline at the end, and print doesn't want to do
+    # that, even with a trailing comma.  *shrug*
+    sys.stdout.write("Source bundle not found.  Is MCP's source directory clean? (y/N) ")
+    answer = sys.stdin.readline().lower()
+    if answer.startswith("y"):
         print "Creating source bundle..."
         exit = subprocess.call(BUNDLE_CMD, shell=True)
         if exit != 0:
@@ -439,16 +480,21 @@ if not os.path.exists(SOURCE_BUNDLE):
         print "Clean MCP's source directory and run this script again."
         sys.exit(BUNDLE_MISSING)
 else:
-    print "Nuking MCP's source directory from orbit..."
-    print "Please confirm that this path is correct.  All contents will be"
-    print "destroyed and a clean version will be restored from the bundle:"
-    print MCP_SRC
-    print "Are you sure it's safe to delete this directory and its contents?",
-    answer = sys.stdin.readline().trim().lower()
-    if not answer.startswith("y"):
-        print "Unable to safely clean MCP's source directory.  Aborting."
-        sys.exit(UNSAFE_DELETE)
-    shutil.rmtree(MCP_SRC)
+    if os.path.exists(MCP_SRC):
+        print "Nuking MCP's source directory from orbit..."
+        print "Please confirm that this path is correct.  All contents will be"
+        print "destroyed and a clean version will be restored from the bundle:"
+        print MCP_SRC
+        # We want this without a newline at the end, and print doesn't want to
+        # do that, even with a trailing comma.  *shrug*
+        sys.stdout.write("Are you sure it's safe to delete this directory and its contents? (y/N) ")
+        answer = sys.stdin.readline().lower()
+        if not answer.startswith("y"):
+            print "Unable to safely clean MCP's source directory.  Aborting."
+            sys.exit(UNSAFE_DELETE)
+        shutil.rmtree(MCP_SRC)
+    else:
+        print "MCP's source directory is missing; no need to delete it."
     print "Restoring source bundle..."
     exit = subprocess.call(EXTRACT_CMD, shell=True)
     if exit != 0:
@@ -465,9 +511,11 @@ if not os.path.isdir(USER):
     print "No user directory found.  Leaving source clean."
 else:
     Project.collect_projects(USER, projects)
+    count = 0
     for project in projects:
-        project.install()
-    print "%d project(s) installed." % len(projects)
+        if project.install():
+            count += 1
+    print "%d project(s) installed." % count
 
 print
 print "STEP 3: Recompiling and reobfuscating."
@@ -494,11 +542,15 @@ print "Recompiled and reobfuscated successfully."
 print
 print "STEP 4: Packaging projects."
 
+Project.load_obfuscation()
+package_count = 0
 for project in projects:
     print "Packaging %s..." % project.name
-    project.package()
+    os.chdir(BASE)
+    if project.package():
+        package_count += 1
 
-print "%d projects packaged successfully."
+print "%d project(s) compiled and packaged successfully." % package_count
 
 # LICENSE:
 #
