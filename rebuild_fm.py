@@ -99,6 +99,7 @@ REOBFUSCATE = os.path.join(BASE, "reobfuscate.sh")
 # Negative: Failure before compiling.
 negative = itertools.count(-1, -1) # Returns 1, 2, 3, etc.
 BUNDLE_MISSING     = negative.next()
+UNSAFE_DELETE      = negative.next()
 BAD_BUNDLE         = negative.next()
 SRC_INSTALL_FAILED = negative.next()
 # Positive: Failure during or after compiling.
@@ -291,7 +292,29 @@ class Project(object):
 
     @classmethod
     def map_to_class(cls, files, server=False):
-        # TODO
+        """Build a list of class files from the matching list of .java files.
+
+           This method does understand Minecraft's obfuscation.
+        """
+        if server:
+            obfuscation = self.server_obfuscation
+        else:
+            obfuscation = self.client_obfuscation
+
+        classes = []
+        for file in files:
+            identifier, ext = os.path.splitext(file)
+
+            if ext.lower() != ".java":
+                continue
+
+            # If it's one of Minecraft's classes, pass it through the
+            # obfuscation map to get the correct identifier for the .class file
+            if identifier in obfuscation:
+                identifier = obfuscation[identifier]
+
+            classes.append(identifier + ".class")
+
 
     def package(self):
         """Packages this project's files."""
@@ -341,16 +364,63 @@ class Project(object):
             if server_classes:
                 call_or_die(["jar", "-cf", server_package] + server_classes)
 
+            # If we haven't created either package yet, we won't, so bail out.
+            if not (client_created or server_created):
+                return
+
 
             ## Collect and package resource files.
-            # TODO
+            # Common first, so they can be overridden.
+            common_resources = os.path.join(self.dir, "resources", "common")
+            if os.path.isdir(common_resources):
+                # To package these, we just change to the appropriate directory
+                # and let the shell and jar command find everything in it.
+                os.chdir(common_resources)
+                if client_created:
+                    call_or_die("jar -uf %s *" % client_package, shell=True)
+                if server_created:
+                    call_or_die("jar -uf %s *" % server_package, shell=True)
+
+            client_resources = os.path.join(self.dir, "resources", "client")
+            if os.path.isdir(client_resources):
+                os.chdir(client_resources)
+                if client_created:
+                    call_or_die("jar -uf %s *" % client_package, shell=True)
+
+            server_resources = os.path.join(self.dir, "resources", "server")
+            if os.path.isdir(server_resources):
+                os.chdir(server_resources)
+                if server_created:
+                    call_or_die("jar -uf %s *" % server_package, shell=True)
+
 
             ## Collect and package source files
             # Unless we shouldn't, in which case we're done.
             if self.hide_source:
                 return
 
-            # TODO
+            # Common first, so they can be overridden.
+            common_source = os.path.join(self.dir, "src", "common")
+            if os.path.isdir(common_source):
+                # To package these, we just change to the appropriate directory
+                # and let the shell and jar command find everything in it.
+                os.chdir(common_source)
+                if client_created:
+                    call_or_die("jar -uf %s *" % client_package, shell=True)
+                if server_created:
+                    call_or_die("jar -uf %s *" % server_package, shell=True)
+
+            client_source = os.path.join(self.dir, "src", "client")
+            if os.path.isdir(client_source):
+                os.chdir(client_source)
+                if client_created:
+                    call_or_die("jar -uf %s *" % client_package, shell=True)
+
+            server_source = os.path.join(self.dir, "src", "server")
+            if os.path.isdir(server_source):
+                os.chdir(server_source)
+                if server_created:
+                    call_or_die("jar -uf %s *" % server_package, shell=True)
 
 
 print "STEP 1: Cleaning MCP's source directory."
@@ -370,6 +440,14 @@ if not os.path.exists(SOURCE_BUNDLE):
         sys.exit(BUNDLE_MISSING)
 else:
     print "Nuking MCP's source directory from orbit..."
+    print "Please confirm that this path is correct.  All contents will be"
+    print "destroyed and a clean version will be restored from the bundle:"
+    print MCP_SRC
+    print "Are you sure it's safe to delete this directory and its contents?",
+    answer = sys.stdin.readline().trim().lower()
+    if not answer.startswith("y"):
+        print "Unable to safely clean MCP's source directory.  Aborting."
+        sys.exit(UNSAFE_DELETE)
     shutil.rmtree(MCP_SRC)
     print "Restoring source bundle..."
     exit = subprocess.call(EXTRACT_CMD, shell=True)
