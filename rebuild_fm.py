@@ -9,7 +9,7 @@
 # recompile, reobfuscate, and package your projects into individual mods.
 
 # To use rebuild.py:
-# 1. Create a new MCP directory.
+# 1. Create a new MCP directory, with both client and server files..
 # 2. If applicable, install ModLoader and Forge.
 # 3. Run decompile.sh to produce a clean src/ directory for MCP.
 # 4. Place rebuild.py in your MCP directory.
@@ -82,6 +82,13 @@ MCP_BIN = os.path.join(BASE, "bin")
 MCP_BIN_CLIENT = os.path.join(MCP_BIN, "minecraft")
 MCP_BIN_SERVER = os.path.join(MCP_BIN, "minecraft_server")
 
+# MCP's reobf directory; this probably shouldn't be changed.
+# This is the directory MCP will place reobfuscated classes in.
+MCP_REOBF = os.path.join(BASE, "reobf")
+# The obvious subdirectories.
+MCP_REOBF_CLIENT = os.path.join(MCP_REOBF, "minecraft")
+MCP_REOBF_SERVER = os.path.join(MCP_REOBF, "minecraft_server")
+
 # How to recompile with MCP; this probably shouldn't be changed.
 RECOMPILE = os.path.join(BASE, "recompile.sh")
 
@@ -117,9 +124,13 @@ REOBFUSCATE_FAILED = positive.next()
 #     server/ - Server-specific source files go here.
 #     common/ - Shared source files go here.  Most of your code should be here.
 #   bin/
-#     client/ - Pre-compiled files needed by the client go here.
-#     server/ - Pre-compiled files needed by the server go here.
-#     common/ - Pre-compiled files needed by both client and server go here.
+#     client/ - Pre-compiled files needed by the client during reobfuscation go
+#               here.  They will not be included in the client package.
+#     server/ - Pre-compiled files needed by the server during reobfuscation go
+#               here.  They will not be included in the server package.
+#     common/ - Pre-compiled files needed by both client and server during
+#               reobfuscation go here.  They will not be included in either
+#               package.
 #   resources/
 #     client/ - Resources to pack into the client .jar go here.
 #               (GUI resources belong here.)
@@ -128,13 +139,14 @@ REOBFUSCATE_FAILED = positive.next()
 #   conf/
 #     PROJECT_NAME    - Overrides the directory's name for the project.
 #     VERSION         - A version number to include in the package name.
-#     PACKAGE_NAME    - Overrides the default "Name.jar" or "Name-version.jar"
-#                       name for the project's package.
+#     PACKAGE_NAME    - Overrides the default "Name" or "Name-version"
+#                       name for the project's package.  The server tag and
+#                       .jar extension will be applied after this.
 #     HIDE_SOURCE     - If present, rebuild.py will not include the project's
 #                       source in its package.
 #     PACKAGE_COMMAND - An alternative command for building the project's
 #                       package.  Only a single line is supported, so complex
-#                       packaging should reference a shell script here.
+#                       packaging should reference a script here.
 
 class Project(object):
     def __init__(self, directory):
@@ -156,6 +168,23 @@ class Project(object):
             return None
         else:
             return open(filename).read().strip()
+
+    @classmethod
+    def load_obfuscation(cls):
+        cls.client_obfuscation = cls._load_obfuscation("conf/client.srg")
+        cls.server_obfuscation = cls._load_obfuscation("conf/server.srg")
+
+    @classmethod
+    def _load_obfuscation(cls, filename):
+        obfuscation = {}
+
+        lines = open(os.path.join(BASE, filename)).readlines()
+        for line in lines:
+            if line.startswith("CL:"):
+                prefix, obfuscated, plain = line.split()
+                obfuscation[plain] = obfuscated
+
+        return obfuscation
 
     @staticmethod
     def collect_projects(root, projects):
@@ -204,7 +233,11 @@ class Project(object):
     def install_precompiled(self):
         """Installs this project's precompiled code into MCP's classes.
 
-           I use this with a deobfuscated-but-still-compiled
+           This code will not be included in the project's package, as it's
+           assumed to be libraries or similar code needed for reobfuscation,
+           but not part of the mod itself.
+
+           I use this with a deobfuscated-but-still-compiled copy of
            IC2 (which I compile against) so that it reobfuscates happily
            without having to actually solve decompilation issues.
         """
@@ -226,8 +259,39 @@ class Project(object):
             if os.path.isdir(server):
                 self.copy_files(server, MCP_BIN_SERVER, BIN_INSTALL_FAILED)
 
-    def get_package_file(self):
-        #TODO
+    def get_package_file(self, server=False):
+        if self.package_name is not None:
+            filename = self.package_name
+        else:
+            if self.version is not None:
+                filename = "%s-%s" % (self.name, self.version)
+            else:
+                filename = "%s" % self.name
+
+        if server:
+            filename += "-server"
+
+        filename += ".jar"
+
+        return os.path.join(TARGET, filename)
+
+    @staticmethod
+    def collect_files(root):
+        all_files = set()
+        if not os.path.isdir(root):
+            return all_files
+
+        for (dir, subdirs, files) in os.walk(root, followlinks=True):
+            for file in files:
+                full_name = os.path.join(dir, file)
+                relative_name = os.path.relpath(full_name, root)
+                all_files.add(relative_name)
+
+        return all_files
+
+    @classmethod
+    def map_to_class(cls, files, server=False):
+        # TODO
 
     def package(self):
         """Packages this project's files."""
@@ -239,9 +303,54 @@ class Project(object):
                 sys.exit(PROJECT_PACKAGE_FAILED)
 
         if project.package_command is not None:
-            call_or_die(project.package_command)
+            call_or_die(project.package_command, shell=True)
         else:
-            #TODO
+            ## Collect and package the matching .class files for this project.
+            # Start by building a list of all of the source files of each type.
+            client_dir = os.path.join(self.dir, "src", "client")
+            client_sources = self.collect_files(client_dir)
+
+            server_dir = os.path.join(self.dir, "src", "server")
+            server_sources = self.collect_files(server_dir)
+
+            common_dir = os.path.join(self.dir, "src", "common")
+            common_sources = self.collect_files(common_dir)
+
+            # Common sources just get added to both sides.
+            client_sources.update(common_sources)
+            server_sources.update(common_sources)
+
+            # Translate the source files into their matching class files,
+            # taking obfuscation into account.
+            client_classes = self.map_to_class(client_sources)
+            server_classes = self.map_to_class(server_sources, server=True)
+
+            # Move into the right directory for jar-ing the classes.
+            os.chdir(MCP_REOBF_CLIENT)
+
+            # Package up the client files.
+            client_package = self.get_package_file()
+            client_created = False
+            if client_classes:
+                call_or_die(["jar", "-cf", client_package] + client_classes)
+                client_created = True
+
+            # And then the server files.
+            server_package = self.get_package_file(server=True)
+            server_created = False
+            if server_classes:
+                call_or_die(["jar", "-cf", server_package] + server_classes)
+
+
+            ## Collect and package resource files.
+            # TODO
+
+            ## Collect and package source files
+            # Unless we shouldn't, in which case we're done.
+            if self.hide_source:
+                return
+
+            # TODO
 
 
 print "STEP 1: Cleaning MCP's source directory."
@@ -309,9 +418,7 @@ print "STEP 4: Packaging projects."
 
 for project in projects:
     print "Packaging %s..." % project.name
-    if not project.package():
-        print "Failed to package project %s.  Aborting" % project.name
-        sys.exit(PROJECT_PACKAGE_FAILED)
+    project.package()
 
 print "%d projects packaged successfully."
 
