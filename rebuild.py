@@ -391,6 +391,8 @@ class Project(object):
             client_package = self.get_package_file()
             client_created = False
             if client_classes:
+                if os.path.exists(client_package):
+                    os.remove(client_package)
                 call_or_die(["zip", "-r", client_package] + client_classes)
                 client_created = True
 
@@ -399,6 +401,8 @@ class Project(object):
             server_package = self.get_package_file(server=True)
             server_created = False
             if server_classes:
+                if os.path.exists(server_package):
+                    os.remove(server_package)
                 call_or_die(["zip", "-r", server_package] + server_classes)
                 server_created = True
 
@@ -416,21 +420,21 @@ class Project(object):
                 # and let the shell and zip command find everything in it.
                 os.chdir(common_resources)
                 if client_created:
-                    call_or_die("zip -rg %s *" % client_package, shell=True)
+                    call_or_die("zip -ru %s *" % client_package, shell=True)
                 if server_created:
-                    call_or_die("zip -rg %s *" % server_package, shell=True)
+                    call_or_die("zip -ru %s *" % server_package, shell=True)
 
             client_resources = os.path.join(self.dir, "resources", "client")
             if os.path.isdir(client_resources):
                 os.chdir(client_resources)
                 if client_created:
-                    call_or_die("zip -rg %s *" % client_package, shell=True)
+                    call_or_die("zip -ru %s *" % client_package, shell=True)
 
             server_resources = os.path.join(self.dir, "resources", "server")
             if os.path.isdir(server_resources):
                 os.chdir(server_resources)
                 if server_created:
-                    call_or_die("zip -rg %s *" % server_package, shell=True)
+                    call_or_die("zip -ru %s *" % server_package, shell=True)
 
 
             ## Collect and package source files
@@ -445,21 +449,21 @@ class Project(object):
                 # and let the shell and zip command find everything in it.
                 os.chdir(common_source)
                 if client_created:
-                    call_or_die("zip -rg %s *" % client_package, shell=True)
+                    call_or_die("zip -ru %s *" % client_package, shell=True)
                 if server_created:
-                    call_or_die("zip -rg %s *" % server_package, shell=True)
+                    call_or_die("zip -ru %s *" % server_package, shell=True)
 
             client_source = os.path.join(self.dir, "src", "client")
             if os.path.isdir(client_source) and os.listdir(client_source):
                 os.chdir(client_source)
                 if client_created:
-                    call_or_die("zip -rg %s *" % client_package, shell=True)
+                    call_or_die("zip -ru %s *" % client_package, shell=True)
 
             server_source = os.path.join(self.dir, "src", "server")
             if os.path.isdir(server_source) and os.listdir(server_source):
                 os.chdir(server_source)
                 if server_created:
-                    call_or_die("zip -rg %s *" % server_package, shell=True)
+                    call_or_die("zip -ru %s *" % server_package, shell=True)
 
             return True
 
