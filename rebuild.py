@@ -151,16 +151,16 @@ PACKAGE_FAILED     = positive.next()
 #               reobfuscation go here.  They will not be included in either
 #               package.
 #   resources/
-#     client/ - Resources to pack into the client .jar go here.
+#     client/ - Resources to pack into the client .zip go here.
 #               (GUI resources belong here.)
-#     server/ - Resources to pack into the server .jar go here.
-#     common/ - Resources to pack into both .jars go here.
+#     server/ - Resources to pack into the server .zip go here.
+#     common/ - Resources to pack into both .zips go here.
 #   conf/
 #     PROJECT_NAME    - Overrides the directory's name for the project.
 #     VERSION         - A version number to include in the package name.
 #     PACKAGE_NAME    - Overrides the default "Name" or "Name-version"
 #                       name for the project's package.  The server tag and
-#                       .jar extension will be applied after this.
+#                       .zip extension will be applied after this.
 #     HIDE_SOURCE     - If present, rebuild.py will not include the project's
 #                       source in its package.
 #     PACKAGE_COMMAND - An alternative command for building the project's
@@ -305,7 +305,7 @@ class Project(object):
         if server:
             filename += "-server"
 
-        filename += ".jar"
+        filename += ".zip"
 
         return os.path.join(TARGET, filename)
 
@@ -391,7 +391,7 @@ class Project(object):
             client_package = self.get_package_file()
             client_created = False
             if client_classes:
-                call_or_die(["jar", "-cf", client_package] + client_classes)
+                call_or_die(["zip", "-r", client_package] + client_classes)
                 client_created = True
 
             # And then the server files.
@@ -399,7 +399,7 @@ class Project(object):
             server_package = self.get_package_file(server=True)
             server_created = False
             if server_classes:
-                call_or_die(["jar", "-cf", server_package] + server_classes)
+                call_or_die(["zip", "-r", server_package] + server_classes)
                 server_created = True
 
             # If we haven't created either package yet, we won't, so bail out.
@@ -413,24 +413,24 @@ class Project(object):
             common_resources = os.path.join(self.dir, "resources", "common")
             if os.path.isdir(common_resources):
                 # To package these, we just change to the appropriate directory
-                # and let the shell and jar command find everything in it.
+                # and let the shell and zip command find everything in it.
                 os.chdir(common_resources)
                 if client_created:
-                    call_or_die("jar -uf %s *" % client_package, shell=True)
+                    call_or_die("zip -rg %s *" % client_package, shell=True)
                 if server_created:
-                    call_or_die("jar -uf %s *" % server_package, shell=True)
+                    call_or_die("zip -rg %s *" % server_package, shell=True)
 
             client_resources = os.path.join(self.dir, "resources", "client")
             if os.path.isdir(client_resources):
                 os.chdir(client_resources)
                 if client_created:
-                    call_or_die("jar -uf %s *" % client_package, shell=True)
+                    call_or_die("zip -rg %s *" % client_package, shell=True)
 
             server_resources = os.path.join(self.dir, "resources", "server")
             if os.path.isdir(server_resources):
                 os.chdir(server_resources)
                 if server_created:
-                    call_or_die("jar -uf %s *" % server_package, shell=True)
+                    call_or_die("zip -rg %s *" % server_package, shell=True)
 
 
             ## Collect and package source files
@@ -442,24 +442,24 @@ class Project(object):
             common_source = os.path.join(self.dir, "src", "common")
             if os.path.isdir(common_source) and os.listdir(common_source):
                 # To package these, we just change to the appropriate directory
-                # and let the shell and jar command find everything in it.
+                # and let the shell and zip command find everything in it.
                 os.chdir(common_source)
                 if client_created:
-                    call_or_die("jar -uf %s *" % client_package, shell=True)
+                    call_or_die("zip -rg %s *" % client_package, shell=True)
                 if server_created:
-                    call_or_die("jar -uf %s *" % server_package, shell=True)
+                    call_or_die("zip -rg %s *" % server_package, shell=True)
 
             client_source = os.path.join(self.dir, "src", "client")
             if os.path.isdir(client_source) and os.listdir(client_source):
                 os.chdir(client_source)
                 if client_created:
-                    call_or_die("jar -uf %s *" % client_package, shell=True)
+                    call_or_die("zip -rg %s *" % client_package, shell=True)
 
             server_source = os.path.join(self.dir, "src", "server")
             if os.path.isdir(server_source) and os.listdir(server_source):
                 os.chdir(server_source)
                 if server_created:
-                    call_or_die("jar -uf %s *" % server_package, shell=True)
+                    call_or_die("zip -rg %s *" % server_package, shell=True)
 
             return True
 
