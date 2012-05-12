@@ -223,7 +223,7 @@ class Project(object):
                 del subdirs[:]
 
     def copy_files(self, source, dest, failcode):
-        exit = subprocess.call("cp -r %s/* %s" % (source, dest), shell=True)
+        exit = subprocess.call("cp -rL %s/* %s" % (source, dest), shell=True)
         if exit != 0:
             print "While processing project %s:" % self.name
             print "Unable to copy files from %s to %s.  Aborting." % \
@@ -346,6 +346,8 @@ class Project(object):
             if identifier in obfuscation:
                 identifier = obfuscation[identifier]
 
+            if identifier.startswith("net/minecraft/src/"):
+                identifier = identifier[len("net/minecraft/src/"):]
             classes.append(identifier + ".class")
 
         return classes
