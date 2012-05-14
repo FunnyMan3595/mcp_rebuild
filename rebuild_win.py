@@ -33,9 +33,9 @@ import itertools, os, os.path, shutil, subprocess, sys
 # Seriously, configure it.  You'll be much happier if you set USER and TARGET
 # to something specific to you before commenting this out.  And you need to be
 # here to read the documentation anyway.
-print "rebuild.py has not been configured properly!  Please edit it and adjust"
-print "the configuration settings."
-sys.exit(3595)
+#print "rebuild.py has not been configured properly!  Please edit it and adjust"
+#print "the configuration settings."
+#sys.exit(3595)
 
 # Base MCP directory.  If you want to be able to run this script from another
 # directory, be sure to set this.
@@ -393,7 +393,7 @@ class Project(object):
             if client_classes:
                 if os.path.exists(client_package):
                     os.remove(client_package)
-                call_or_die(["7z", "a -y", "\"", client_package, "\""] + ["\"", client_classes, "\""])
+                call_or_die(["7z", "a", "-y", client_package] + client_classes)
                 client_created = True
 
             # And then the server files.
@@ -403,7 +403,7 @@ class Project(object):
             if server_classes:
                 if os.path.exists(server_package):
                     os.remove(server_package)
-                call_or_die(["7z", "a -y", server_package] + server_classes)
+                call_or_die(["7z", "a", "-y", server_package] + server_classes)
                 server_created = True
 
             # If we haven't created either package yet, we won't, so bail out.
