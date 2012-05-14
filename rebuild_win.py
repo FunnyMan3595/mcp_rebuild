@@ -72,7 +72,7 @@ except OSError:
 # Technically, this doesn't have to be a true "bundle".  Using a directory here
 # would work, provided you use a matching BUNDLE_CMD and EXTRACT command.
 # Version control would also work, just make sure it's not stored in MCP_SRC.
-SOURCE_BUNDLE = os.path.join(BASE, "source.tbz2")
+SOURCE_BUNDLE = os.path.join(BASE, "source.7z")
 
 # MCP's src directory; this probably shouldn't be changed.
 # This is the directory MCP will compile from.
@@ -87,7 +87,7 @@ MCP_SRC_CLIENT = os.path.join(MCP_SRC, "minecraft")
 MCP_SRC_SERVER = os.path.join(MCP_SRC, "minecraft_server")
 
 # How to create the bundle.
-BUNDLE_CMD = "7z c -r %(SOURCE_BUNDLE)s %(MCP_SRC_REL)s" % vars()
+BUNDLE_CMD = "7z a -r %(SOURCE_BUNDLE)s %(MCP_SRC_REL)s" % vars()
 
 # How to extract the bundle.
 EXTRACT_CMD = "7z x -r %(SOURCE_BUNDLE)s" % vars()
@@ -107,10 +107,10 @@ MCP_REOBF_CLIENT = os.path.join(MCP_REOBF, "minecraft")
 MCP_REOBF_SERVER = os.path.join(MCP_REOBF, "minecraft_server")
 
 # How to recompile with MCP; this probably shouldn't be changed.
-RECOMPILE = os.path.join(BASE, "recompile.sh")
+RECOMPILE = os.path.join(BASE, "recompile.bat")
 
 # How to reobfuscate with MCP; this probably shouldn't be changed.
-REOBFUSCATE = os.path.join(BASE, "reobfuscate.sh")
+REOBFUSCATE = os.path.join(BASE, "reobfuscate.bat")
 
 # Exit codes; these probably shouldn't be changed.
 # Negative: Failure before compiling.
