@@ -87,10 +87,10 @@ MCP_SRC_CLIENT = os.path.join(MCP_SRC, "minecraft")
 MCP_SRC_SERVER = os.path.join(MCP_SRC, "minecraft_server")
 
 # How to create the bundle.
-BUNDLE_CMD = "7z a -r %(SOURCE_BUNDLE)s %(MCP_SRC_REL)s" % vars()
+BUNDLE_CMD = "7z a -r \"%(SOURCE_BUNDLE)s\" %(MCP_SRC_REL)s" % vars()
 
 # How to extract the bundle.
-EXTRACT_CMD = "7z x -r %(SOURCE_BUNDLE)s" % vars()
+EXTRACT_CMD = "7z x -r \"%(SOURCE_BUNDLE)s\"" % vars()
 
 # MCP's bin directory; this probably shouldn't be changed.
 # This is the directory MCP will obfuscate from.
@@ -223,7 +223,7 @@ class Project(object):
                 del subdirs[:]
 
     def copy_files(self, source, dest, failcode):
-        exit = subprocess.call("xcopy /E %s/* %s" % (source, dest), shell=True)
+        exit = subprocess.call("xcopy /E \"%s/*\" \"%s\"" % (source, dest), shell=True)
         if exit != 0:
             print "While processing project %s:" % self.name
             print "Unable to copy files from %s to %s.  Aborting." % \
@@ -420,21 +420,21 @@ class Project(object):
                 # and let the shell and zip command find everything in it.
                 os.chdir(common_resources)
                 if client_created:
-                    call_or_die("7z u -r %s *" % client_package, shell=True)
+                    call_or_die("7z u -r \"%s\" *" % client_package, shell=True)
                 if server_created:
-                    call_or_die("7z u -r %s *" % server_package, shell=True)
+                    call_or_die("7z u -r \"%s\" *" % server_package, shell=True)
 
             client_resources = os.path.join(self.dir, "resources", "client")
             if os.path.isdir(client_resources):
                 os.chdir(client_resources)
                 if client_created:
-                    call_or_die("7z u -r %s *" % client_package, shell=True)
+                    call_or_die("7z u -r \"%s\" *" % client_package, shell=True)
 
             server_resources = os.path.join(self.dir, "resources", "server")
             if os.path.isdir(server_resources):
                 os.chdir(server_resources)
                 if server_created:
-                    call_or_die("7z u -r %s *" % server_package, shell=True)
+                    call_or_die("7z u -r \"%s\" *" % server_package, shell=True)
 
 
             ## Collect and package source files
@@ -449,21 +449,21 @@ class Project(object):
                 # and let the shell and zip command find everything in it.
                 os.chdir(common_source)
                 if client_created:
-                    call_or_die("7z u -r %s *" % client_package, shell=True)
+                    call_or_die("7z u -r \"%s\" *" % client_package, shell=True)
                 if server_created:
-                    call_or_die("7z u -r %s *" % server_package, shell=True)
+                    call_or_die("7z u -r \"%s\" *" % server_package, shell=True)
 
             client_source = os.path.join(self.dir, "src", "client")
             if os.path.isdir(client_source) and os.listdir(client_source):
                 os.chdir(client_source)
                 if client_created:
-                    call_or_die("7z u -r %s *" % client_package, shell=True)
+                    call_or_die("7z u -r \"%s\" *" % client_package, shell=True)
 
             server_source = os.path.join(self.dir, "src", "server")
             if os.path.isdir(server_source) and os.listdir(server_source):
                 os.chdir(server_source)
                 if server_created:
-                    call_or_die("7z u -r %s *" % server_package, shell=True)
+                    call_or_die("7z u -r \"%s\" *" % server_package, shell=True)
 
             return True
 
