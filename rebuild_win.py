@@ -48,7 +48,8 @@ os.chdir(BASE)
 # for this!
 # The format of this directory's contents is described just after the config
 # settings.
-USER = os.path.join(BASE, "user_src")
+# Now uses absolute path. Escape backslashes, will make this better later
+USER = os.path.abspath("user_src")
 try:
     os.makedirs(USER)
 except OSError:
@@ -61,7 +62,8 @@ else:
 
 # Where your projects' packages will go when they are created.  MCP's
 # subdirectories could be used here, but are not recommended.
-TARGET = os.path.join(BASE, "user_target")
+# Now uses absolute path. Escape backslashes, will make this better later
+TARGET = os.path.abspath("user_target")
 try:
     os.makedirs(TARGET)
 except OSError:
