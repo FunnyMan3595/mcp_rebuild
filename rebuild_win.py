@@ -89,10 +89,10 @@ MCP_SRC_CLIENT = os.path.join(MCP_SRC, "minecraft")
 MCP_SRC_SERVER = os.path.join(MCP_SRC, "minecraft_server")
 
 # How to create the bundle.
-BUNDLE_CMD = "7z a -ry \"%(SOURCE_BUNDLE)s\" %(MCP_SRC_REL)s" % vars()
+BUNDLE_CMD = "7z a -y \"%(SOURCE_BUNDLE)s\" %(MCP_SRC_REL)s" % vars()
 
 # How to extract the bundle.
-EXTRACT_CMD = "7z x -ry \"%(SOURCE_BUNDLE)s\"" % vars()
+EXTRACT_CMD = "7z x -y \"%(SOURCE_BUNDLE)s\"" % vars()
 
 # MCP's bin directory; this probably shouldn't be changed.
 # This is the directory MCP will obfuscate from.
