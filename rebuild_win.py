@@ -33,9 +33,9 @@ import itertools, os, os.path, shutil, subprocess, sys
 # Seriously, configure it.  You'll be much happier if you set USER and TARGET
 # to something specific to you before commenting this out.  And you need to be
 # here to read the documentation anyway.
-#print "rebuild.py has not been configured properly!  Please edit it and adjust"
-#print "the configuration settings."
-#sys.exit(3595)
+print "rebuild.py has not been configured properly!  Please edit it and adjust"
+print "the configuration settings."
+sys.exit(3595)
 
 # Base MCP directory.  If you want to be able to run this script from another
 # directory, be sure to set this.
@@ -346,8 +346,8 @@ class Project(object):
             if identifier in obfuscation:
                 identifier = obfuscation[identifier]
 
-            if identifier.startswith("net/minecraft/src/"):
-                identifier = identifier[len("net/minecraft/src/"):]
+            if identifier.startswith("net\\minecraft\\src\\"):
+                identifier = identifier[len("net\\minecraft\\src\\"):]
             classes.append(identifier + ".class")
 
         return classes
