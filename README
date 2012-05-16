@@ -1,68 +1,7 @@
-rebuild.py - A Python script for safe and easy rebuilding of MCP projects.
-# Copyright (c) 2011 FunnyMan3595 (Charlie Nolan)
-# This code is made avilable under the MIT license. The full text of the
-# license can be found at the end of this file.
+Settings and documentation for rebuild.py can be found in its source code.
+Anything that's not immediately clear to a programmer should be reported as a
+bug, either at https://github.com/FunnyMan3595/mcp_rebuild or directly via
+email to funnyman3595@gmail.com.
 
-# The point of rebuild.py is to allow you to store your code outside of MCP's
-# dangerous src/ directory while allowing you to easily install it to MCP,
-# recompile, reobfuscate, and package your projects into individual mods.
-
-# To use rebuild.py:
-# 1. Create a new MCP directory, with both client and server files..
-# 2. If applicable, install ModLoader and Forge.
-# 3. Run decompile.sh to produce a clean src/ directory for MCP.
-# 4. Place rebuild.py in your MCP directory.
-# 5. Edit rebuild.py to configure it. Configuration settings are located near
-# the beginning of the file. You'll want to change USER and TARGET, at
-# least. BASE might also be worth changing.
-# 6. Run rebuild.py once, and tell it that MCP's source directory is clean.
-# This causes rebuild.py to record a "clean state" that it will reset MCP's
-# source directory to before each compilation.
-# 7. Create one or more projects in your USER directory. The format for a
-# project can be found just after the configuration settings.
-# Note: If you didn't let rebuild.py create the directory for you, you need
-# to create a CATEGORY file in it (contents are unimportant) so that
-# rebuild.py does not consider it a single project.
-# 8. Run rebuild.py to build your projects.
-# 9. Fix the inevitable errors and return to step 8 until it actually *does*
-# work.
-
-USER PROJECT LAYOUT
-# user project, also known as a subdirectory
-# of USER.  Each project should have the following form, with all pieces
-# optional:
-#
-# $PROJECT_NAME/
-#   CATEGORY - If present, this directory is treated as a category which can
-#              contain projects (or other categories) and not a project itself.
-#   DISABLED - If present, this project or category will be skipped by
-#              rebuild.py.  Useful for "turning off" projects that won't
-#              compile right now.
-#   src/
-#     client/ - Client-specific source files go here.
-#     server/ - Server-specific source files go here.
-#     common/ - Shared source files go here.  Most of your code should be here.
-#   bin/
-#     client/ - Pre-compiled files needed by the client during reobfuscation go
-#               here.  They will not be included in the client package.
-#     server/ - Pre-compiled files needed by the server during reobfuscation go
-#               here.  They will not be included in the server package.
-#     common/ - Pre-compiled files needed by both client and server during
-#               reobfuscation go here.  They will not be included in either
-#               package.
-#   resources/
-#     client/ - Resources to pack into the client .zip go here.
-#               (GUI resources belong here.)
-#     server/ - Resources to pack into the server .zip go here.
-#     common/ - Resources to pack into both .zips go here.
-#   conf/
-#     PROJECT_NAME    - Overrides the directory's name for the project.
-#     VERSION         - A version number to include in the package name.
-#     PACKAGE_NAME    - Overrides the default "Name" or "Name-version"
-#                       name for the project's package.  The server tag and
-#                       .zip extension will be applied after this.
-#     HIDE_SOURCE     - If present, rebuild.py will not include the project's
-#                       source in its package.
-#     PACKAGE_COMMAND - An alternative command for building the project's
-#                       package.  Only a single line is supported, so complex
-#                       packaging should reference a script here.
+If you're trying to use this and are not a programmer, go ahead and report
+that, too, because I'd like to know why.
