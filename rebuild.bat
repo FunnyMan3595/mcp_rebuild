@@ -1,2 +1,2 @@
 @echo off
-runtime\bin\python\python_mcp rebuild_win.py %*
+runtime\bin\python\python_mcp rebuild.py %*

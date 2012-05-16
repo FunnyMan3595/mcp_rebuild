@@ -28,7 +28,11 @@
 # 9. Fix the inevitable errors and return to step 8 until it actually *does*
 #    work.
 
-import itertools, os, os.path, shutil, subprocess, sys
+# NOTE: rebuild.py does not detect and package inner classes.  If you use inner
+#       classes, be sure to add them to the final package manually.
+
+import itertools, os, os.path, platform, shutil, subprocess, sys, tarfile, \
+       zipfile
 
 # Seriously, configure it.  You'll be much happier if you set USER and TARGET
 # to something specific to you before commenting this out.  And you need to be
@@ -48,12 +52,10 @@ os.chdir(BASE)
 # for this!
 # The format of this directory's contents is described just after the config
 # settings.
-USER = os.path.join(BASE, "user_src")
-try:
+USER = os.path.abspath(os.path.join("BASE", "user_src"))
+if not os.path.exists(USER):
     os.makedirs(USER)
-except OSError:
-    pass # Most likely "already exists"
-else:
+
     # Touch the CATEGORY file.
     with open(os.path.join(USER, "CATEGORY"), "w") as catfile:
         catfile.write("This is a placeholder file to mark this directory as a "
@@ -61,36 +63,35 @@ else:
 
 # Where your projects' packages will go when they are created.  MCP's
 # subdirectories could be used here, but are not recommended.
-TARGET = os.path.join(BASE, "user_target")
+USER = os.path.abspath(os.path.join("BASE", "user_target"))
 try:
     os.makedirs(TARGET)
 except OSError:
-    pass # Most likely "already exists"
+    pass # Most likely "already exists".
 
-# Original source bundle, used to reset to a clean state before installing
-# user files.
-# Technically, this doesn't have to be a true "bundle".  Using a directory here
-# would work, provided you use a matching BUNDLE_CMD and EXTRACT command.
-# Version control would also work, just make sure it's not stored in MCP_SRC.
+# Original source bundle, used to reset MCP's source directory to a clean state
+# before installing user files.
 SOURCE_BUNDLE = os.path.join(BASE, "source.tbz2")
+
+
+
+# === Standard configuration ends here ===
+# Constants after this point are not meant to be altered by the user.
+
+
 
 # MCP's src directory; this probably shouldn't be changed.
 # This is the directory MCP will compile from.
 # THIS WILL BE NUKED FROM ORBIT EACH RUN.  All contents will be lost.
 # A clean copy will then be restored from SOURCE_BUNDLE.  If SOURCE_BUNDLE does
 # not exist, the script will offer to create it from a clean MCP_SRC.
-# The _REL version is used for bundling, to avoid confusing tar.
+# The _REL version is used for bundling, to avoid storing absolute paths.
 MCP_SRC_REL = "src"
 MCP_SRC = os.path.join(BASE, MCP_SRC_REL)
 # The obvious subdirectories.
 MCP_SRC_CLIENT = os.path.join(MCP_SRC, "minecraft")
 MCP_SRC_SERVER = os.path.join(MCP_SRC, "minecraft_server")
 
-# How to create the bundle.
-BUNDLE_CMD = "tar -cjf %(SOURCE_BUNDLE)s %(MCP_SRC_REL)s" % vars()
-
-# How to extract the bundle.
-EXTRACT_CMD = "tar -xjf %(SOURCE_BUNDLE)s" % vars()
 
 # MCP's bin directory; this probably shouldn't be changed.
 # This is the directory MCP will obfuscate from.
@@ -106,11 +107,21 @@ MCP_REOBF = os.path.join(BASE, "reobf")
 MCP_REOBF_CLIENT = os.path.join(MCP_REOBF, "minecraft")
 MCP_REOBF_SERVER = os.path.join(MCP_REOBF, "minecraft_server")
 
+# Detects whether the script is running under windows; this probably shouldn't
+# be changed.
+WINDOWS = (platform.system() == "Windows")
+
 # How to recompile with MCP; this probably shouldn't be changed.
-RECOMPILE = os.path.join(BASE, "recompile.sh")
+if WINDOWS:
+    RECOMPILE = os.path.join(BASE, "recompile.bat")
+else:
+    RECOMPILE = os.path.join(BASE, "recompile.sh")
 
 # How to reobfuscate with MCP; this probably shouldn't be changed.
-REOBFUSCATE = os.path.join(BASE, "reobfuscate.sh")
+if WINDOWS:
+    REOBFUSCATE = os.path.join(BASE, "reobfuscate.bat")
+else:
+    REOBFUSCATE = os.path.join(BASE, "reobfuscate.sh")
 
 # Exit codes; these probably shouldn't be changed.
 # Negative: Failure before compiling.
@@ -223,12 +234,16 @@ class Project(object):
                 del subdirs[:]
 
     def copy_files(self, source, dest, failcode):
-        exit = subprocess.call("cp -rL %s/* %s" % (source, dest), shell=True)
-        if exit != 0:
-            print "While processing project %s:" % self.name
-            print "Unable to copy files from %s to %s.  Aborting." % \
-                                          (source, dest)
-            sys.exit(failcode)
+        for (source_dir, subdirs, files) in os.walk(source, followlinks=True):
+            dest_dir = os.path.join(dest, os.path.relpath(source, raw_dir))
+            if not os.path.exists(dest_dir):
+                os.makedirs(dest_dir)
+
+            for file in files:
+                try:
+                    shutil.copy2(os.path.join(source_dir, file), dest_dir)
+                except shutil.WindowsError:
+                    pass # Windows doesn't like copying access time.
 
     def install(self):
         """Installs this project into MCP's source."""
@@ -346,12 +361,27 @@ class Project(object):
             if identifier in obfuscation:
                 identifier = obfuscation[identifier]
 
-            if identifier.startswith("net/minecraft/src/"):
-                identifier = identifier[len("net/minecraft/src/"):]
+            prefix = os.path.join("net", "minecraft", "src")
+            if identifier.startswith(prefix):
+                identifier = identifier[len(prefix):]
             classes.append(identifier + ".class")
 
         return classes
 
+    def zip(self, archive_name, files=None, clean=False):
+        if clean:
+            mode = "w"
+        else:
+            mode = "a"
+
+        with zipfile.ZipFile(archive_name, mode) as archive:
+            if files is None:
+                for dir, subdirs, files in os.walk(".", followlinks=True):
+                    for file in files:
+                        archive.write(os.path.join(dir, file))
+            else:
+                for file in files:
+                    archive.write(os.path.join(dir, file))
 
     def package(self):
         """Packages this project's files."""
@@ -393,7 +423,7 @@ class Project(object):
             if client_classes:
                 if os.path.exists(client_package):
                     os.remove(client_package)
-                call_or_die(["zip", "-r", client_package] + client_classes)
+                self.zip(client_package, client_classes, clean=True)
                 client_created = True
 
             # And then the server files.
@@ -403,7 +433,7 @@ class Project(object):
             if server_classes:
                 if os.path.exists(server_package):
                     os.remove(server_package)
-                call_or_die(["zip", "-r", server_package] + server_classes)
+                self.zip(server_package, server_classes, clean=True)
                 server_created = True
 
             # If we haven't created either package yet, we won't, so bail out.
@@ -420,21 +450,21 @@ class Project(object):
                 # and let the shell and zip command find everything in it.
                 os.chdir(common_resources)
                 if client_created:
-                    call_or_die("zip -ru %s *" % client_package, shell=True)
+                    self.zip(client_package)
                 if server_created:
-                    call_or_die("zip -ru %s *" % server_package, shell=True)
+                    self.zip(server_package)
 
             client_resources = os.path.join(self.dir, "resources", "client")
             if os.path.isdir(client_resources):
                 os.chdir(client_resources)
                 if client_created:
-                    call_or_die("zip -ru %s *" % client_package, shell=True)
+                    self.zip(client_package)
 
             server_resources = os.path.join(self.dir, "resources", "server")
             if os.path.isdir(server_resources):
                 os.chdir(server_resources)
                 if server_created:
-                    call_or_die("zip -ru %s *" % server_package, shell=True)
+                    self.zip(server_package)
 
 
             ## Collect and package source files
@@ -449,21 +479,21 @@ class Project(object):
                 # and let the shell and zip command find everything in it.
                 os.chdir(common_source)
                 if client_created:
-                    call_or_die("zip -ru %s *" % client_package, shell=True)
+                    self.zip(client_package)
                 if server_created:
-                    call_or_die("zip -ru %s *" % server_package, shell=True)
+                    self.zip(server_package)
 
             client_source = os.path.join(self.dir, "src", "client")
             if os.path.isdir(client_source) and os.listdir(client_source):
                 os.chdir(client_source)
                 if client_created:
-                    call_or_die("zip -ru %s *" % client_package, shell=True)
+                    self.zip(client_package)
 
             server_source = os.path.join(self.dir, "src", "server")
             if os.path.isdir(server_source) and os.listdir(server_source):
                 os.chdir(server_source)
                 if server_created:
-                    call_or_die("zip -ru %s *" % server_package, shell=True)
+                    self.zip(server_package)
 
             return True
 
@@ -476,11 +506,8 @@ if not os.path.exists(SOURCE_BUNDLE):
     answer = sys.stdin.readline().lower()
     if answer.startswith("y"):
         print "Creating source bundle..."
-        exit = subprocess.call(BUNDLE_CMD, shell=True)
-        if exit != 0:
-            print "Bundle failed with exit code %d." % exit
-            print "Unable to create bundle.  Aborting."
-            sys.exit(BUNDLE_MISSING)
+        with tarfile.open(SOURCE_BUNDLE, "w:bz2") as archive:
+            archive.add(MCP_SRC_REL)
         print "Bundle created.  No need to clean the source directory."
     else:
         print "Clean MCP's source directory and run this script again."
@@ -502,11 +529,8 @@ else:
     else:
         print "MCP's source directory is missing; no need to delete it."
     print "Restoring source bundle..."
-    exit = subprocess.call(EXTRACT_CMD, shell=True)
-    if exit != 0:
-        print "Extract failed with exit code %d." % exit
-        print "Unable to extract source bundle.  Aborting."
-        sys.exit(BAD_BUNDLE)
+    with tarfile.open(SOURCE_BUNDLE, "r:bz2") as archive:
+        archive.extractall()
     print "Bundle restored; MCP's source directory is now clean."
 
 print
