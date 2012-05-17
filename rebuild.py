@@ -22,7 +22,8 @@
 #    This causes rebuild.py to record a "clean state" that it will reset MCP's
 #    source directory to before each compilation.
 # 7. Create one or more projects in your USER directory.  The format for a
-#    project can be found just after the configuration settings.
+#    project can be found just after the configuration settings and constants.
+#    Search for "Project directory format".
 #    Note: If you didn't let rebuild.py create the directory for you, you need
 #    to create a CATEGORY file in it (contents are unimportant) so that
 #    rebuild.py does not consider it a single project.
@@ -57,6 +58,8 @@ sys.exit(3595)
 # Convenience functions.  These make the config settings look neater.
 # Don't change them unless you know what you're doing.
 absolute = os.path.abspath
+# Yes, this does work.  Even though it's defined before BASE is set, it will
+# have been set before relative() is called, and that's sufficient.
 relative = lambda rel: absolute(os.path.join(BASE, rel))
 
 # Base MCP directory.  If you want to be able to run this script from another
@@ -161,6 +164,8 @@ PACKAGE_FAILED     = positive.next()
 
 
 
+# ===Project directory format===
+#
 # This class is used to represent a user project, also known as a subdirectory
 # of USER.  Each project should have the following form, with all pieces
 # optional:
@@ -168,6 +173,8 @@ PACKAGE_FAILED     = positive.next()
 # $PROJECT_NAME/
 #   CATEGORY - If present, this directory is treated as a category which can
 #              contain projects (or other categories) and not a project itself.
+#              (Note: You could have a single project by removing this file
+#               from USER, but I don't recommend it.)
 #   DISABLED - If present, this project or category will be skipped by
 #              rebuild.py.  Useful for "turning off" projects that won't
 #              compile right now.
