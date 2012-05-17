@@ -4,10 +4,12 @@
 # This code is made avilable under the MIT license.  The full text of the
 # license can be found at the end of this file.
 
+# ===Summary===
 # The point of rebuild.py is to allow you to store your code outside of MCP's
 # dangerous src/ directory while allowing you to easily install it to MCP,
 # recompile, reobfuscate, and package your projects into individual mods.
 
+# ===Instructions===
 # To use rebuild.py:
 # 1. Create a new MCP directory, with both client and server files..
 # 2. If applicable, install ModLoader and Forge.
@@ -41,9 +43,25 @@ print "rebuild.py has not been configured properly!  Please edit it and adjust"
 print "the configuration settings."
 sys.exit(3595)
 
+
+# ===Configuration instructions===
+# All of the current configuration settings are paths to particular files and
+# directories.  Aside from BASE, they are specified relative to BASE, however
+# an absolute path will still work, even if you leave the relative() wrapper.
+#
+# If you want to specify a path relative to your home directory, you must run
+# it through os.path.expanduser for "~" to be treated as your home directory.
+#
+# Once you've finished configuration, comment out the three lines above.
+
+# Convenience functions.  These make the config settings look neater.
+# Don't change them unless you know what you're doing.
+absolute = os.path.abspath
+relative = lambda rel: absolute(os.path.join(BASE, rel))
+
 # Base MCP directory.  If you want to be able to run this script from another
 # directory, be sure to set this.
-BASE = os.path.abspath(".")
+BASE = absolute(".")
 # (Yes, os.getcwd() would work identically here for the default behaviour, but
 #  this format is a bit more intuitive if you decide to modify it.)
 os.chdir(BASE)
@@ -52,7 +70,24 @@ os.chdir(BASE)
 # for this!
 # The format of this directory's contents is described just after the config
 # settings.
-USER = os.path.abspath(os.path.join(BASE, "user_src"))
+USER = relative("user_src")
+
+# Where your projects' packages will go when they are created.  MCP's
+# subdirectories could be used here, but are not recommended.
+TARGET = relative("user_target")
+
+# Original source bundle, used to reset MCP's source directory to a clean state
+# before installing user files.
+SOURCE_BUNDLE = relative("source.tbz2")
+
+
+
+# === Standard configuration ends here ===
+# Constants after this point are not meant to be altered by the user.
+
+
+# This block creates the project directory and forces it to be seen as a
+# category.  You probably shouldn't mess with this.
 if not os.path.exists(USER):
     os.makedirs(USER)
 
@@ -61,21 +96,10 @@ if not os.path.exists(USER):
         catfile.write("This is a placeholder file to mark this directory as a "
                       "category, not a project.")
 
-# Where your projects' packages will go when they are created.  MCP's
-# subdirectories could be used here, but are not recommended.
-TARGET = os.path.abspath(os.path.join(BASE, "user_target"))
+# This block creates the package directory.  You probably shouldn't mess with
+# this.
 if not os.path.exists(TARGET):
     os.makedirs(TARGET)
-
-# Original source bundle, used to reset MCP's source directory to a clean state
-# before installing user files.
-SOURCE_BUNDLE = os.path.abspath(os.path.join(BASE, "source.tbz2"))
-
-
-
-# === Standard configuration ends here ===
-# Constants after this point are not meant to be altered by the user.
-
 
 
 # MCP's src directory; this probably shouldn't be changed.
@@ -85,7 +109,7 @@ SOURCE_BUNDLE = os.path.abspath(os.path.join(BASE, "source.tbz2"))
 # not exist, the script will offer to create it from a clean MCP_SRC.
 # The _REL version is used for bundling, to avoid storing absolute paths.
 MCP_SRC_REL = "src"
-MCP_SRC = os.path.join(BASE, MCP_SRC_REL)
+MCP_SRC = relative(MCP_SRC_REL)
 # The obvious subdirectories.
 MCP_SRC_CLIENT = os.path.join(MCP_SRC, "minecraft")
 MCP_SRC_SERVER = os.path.join(MCP_SRC, "minecraft_server")
@@ -93,14 +117,14 @@ MCP_SRC_SERVER = os.path.join(MCP_SRC, "minecraft_server")
 
 # MCP's bin directory; this probably shouldn't be changed.
 # This is the directory MCP will obfuscate from.
-MCP_BIN = os.path.join(BASE, "bin")
+MCP_BIN = relative("bin")
 # The obvious subdirectories.
 MCP_BIN_CLIENT = os.path.join(MCP_BIN, "minecraft")
 MCP_BIN_SERVER = os.path.join(MCP_BIN, "minecraft_server")
 
 # MCP's reobf directory; this probably shouldn't be changed.
 # This is the directory MCP will place reobfuscated classes in.
-MCP_REOBF = os.path.join(BASE, "reobf")
+MCP_REOBF = relative("reobf")
 # The obvious subdirectories.
 MCP_REOBF_CLIENT = os.path.join(MCP_REOBF, "minecraft")
 MCP_REOBF_SERVER = os.path.join(MCP_REOBF, "minecraft_server")
@@ -111,15 +135,15 @@ WINDOWS = (platform.system() == "Windows")
 
 # How to recompile with MCP; this probably shouldn't be changed.
 if WINDOWS:
-    RECOMPILE = os.path.join(BASE, "recompile.bat")
+    RECOMPILE = relative("recompile.bat")
 else:
-    RECOMPILE = os.path.join(BASE, "recompile.sh")
+    RECOMPILE = relative("recompile.sh")
 
 # How to reobfuscate with MCP; this probably shouldn't be changed.
 if WINDOWS:
-    REOBFUSCATE = os.path.join(BASE, "reobfuscate.bat")
+    REOBFUSCATE = relative("reobfuscate.bat")
 else:
-    REOBFUSCATE = os.path.join(BASE, "reobfuscate.sh")
+    REOBFUSCATE = relative("reobfuscate.sh")
 
 # Exit codes; these probably shouldn't be changed.
 # Negative: Failure before compiling.
