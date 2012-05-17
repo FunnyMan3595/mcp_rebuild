@@ -52,7 +52,7 @@ os.chdir(BASE)
 # for this!
 # The format of this directory's contents is described just after the config
 # settings.
-USER = os.path.abspath(os.path.join("BASE", "user_src"))
+USER = os.path.abspath(os.path.join(BASE, "user_src"))
 if not os.path.exists(USER):
     os.makedirs(USER)
 
@@ -63,15 +63,13 @@ if not os.path.exists(USER):
 
 # Where your projects' packages will go when they are created.  MCP's
 # subdirectories could be used here, but are not recommended.
-USER = os.path.abspath(os.path.join("BASE", "user_target"))
-try:
+TARGET = os.path.abspath(os.path.join(BASE, "user_target"))
+if not os.path.exists(TARGET):
     os.makedirs(TARGET)
-except OSError:
-    pass # Most likely "already exists".
 
 # Original source bundle, used to reset MCP's source directory to a clean state
 # before installing user files.
-SOURCE_BUNDLE = os.path.join(BASE, "source.tbz2")
+SOURCE_BUNDLE = os.path.abspath(os.path.join(BASE, "source.tbz2"))
 
 
 
@@ -227,18 +225,21 @@ class Project(object):
             if "DISABLED" in files:
                 # This project or category has been disabled.  Skip it.
                 del subdirs[:]
+                print "Disabled project or category at %s." % dir
             elif "CATEGORY" in files:
                 # This is a category, not a project.  Continue normally.
                 pass
+                print "Found category at %s, recursing." % dir
             else:
                 # This is a project.  Create it, but do not continue into
                 # subdirectories.
                 projects.append(Project(dir))
                 del subdirs[:]
+                print "Found project at %s." % dir
 
     def copy_files(self, source, dest, failcode):
         for (source_dir, subdirs, files) in os.walk(source, followlinks=True):
-            dest_dir = os.path.join(dest, os.path.relpath(source, raw_dir))
+            dest_dir = os.path.join(dest, os.path.relpath(source_dir, source))
             if not os.path.exists(dest_dir):
                 os.makedirs(dest_dir)
 
@@ -364,7 +365,7 @@ class Project(object):
             if identifier in obfuscation:
                 identifier = obfuscation[identifier]
 
-            prefix = os.path.join("net", "minecraft", "src")
+            prefix = os.path.join("net", "minecraft", "src", "")
             if identifier.startswith(prefix):
                 identifier = identifier[len(prefix):]
             classes.append(identifier + ".class")
@@ -384,7 +385,7 @@ class Project(object):
                         archive.write(os.path.join(dir, file))
             else:
                 for file in files:
-                    archive.write(os.path.join(dir, file))
+                    archive.write(file)
 
     def package(self):
         """Packages this project's files."""
