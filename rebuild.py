@@ -213,6 +213,9 @@ class Project(object):
         for line in lines:
             if line.startswith("CL:"):
                 prefix, obfuscated, plain = line.split()
+                if os.path.sep != "/":
+                    obfuscated = obfuscated.replace("/", os.path.sep)
+                    plain = plain.replace("/", os.path.sep)
                 obfuscation[plain] = obfuscated
 
         return obfuscation
