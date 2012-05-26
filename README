@@ -1,7 +1,83 @@
-Settings and documentation for rebuild.py can be found in its source code.
-Anything that's not immediately clear to a programmer should be reported as a
-bug, either at https://github.com/FunnyMan3595/mcp_rebuild or directly via
-email to funnyman3595@gmail.com.
+===Summary===
+The point of mcp_rebuild is to allow you to store your code outside of MCP's
+dangerous src/ directory by providing you with one simple command to install
+all of your mods to MCP, recompile and reobfuscate them, and automatically
+package each of your mods into its own versioned zip file.
 
-If you're trying to use this and are not a programmer, go ahead and report
-that, too, because I'd like to know why.
+===Instructions===
+To use mcp_rebuild:
+
+1. Create a new MCP directory, with both client and server files.
+2. If applicable, install ModLoader and Forge.
+3. Run decompile.sh to produce a clean src/ directory for MCP.
+4. Obtain mcp_rebuild, and place it into its own directory.  An mcp_rebuild
+   directory underneath the MCP directory works well.
+5. Configure mcp_rebuild by editing settings.py.  (This is not optional.)
+6. Run mcp_rebuild once, by starting rebuild.bat (for Windows users) or
+   rebuild.sh (for Linux/Cygwin users).  Tell mcp_rebuild that MCP's source
+   directory is clean (since you just made it).
+   This causes mcp_rebuild to record a "clean state" that it will reset MCP's
+   source directory to before each compilation.
+7. Create one or more projects in your USER directory.  The format for a
+   project can be found below.
+   Note: If you didn't let mcp_rebuild create the directory for you, you need
+   to create a CATEGORY file in it (contents are unimportant) so that
+   mcp_rebuild does not consider it a single project.
+8. Run mcp_rebuild to build your projects.
+9. Fix the inevitable errors and return to step 8 until it actually *does*
+   work.
+
+WARNING: mcp_rebuild does not detect and package inner classes.  If you use
+         inner classes, be sure to add them to the final package manually.
+
+
+===Project directory format===
+When run, mcp_rebuild scans through your USER directory to find projects to
+build.  Each project should have the following form, with all pieces optional:
+
+$PROJECT_NAME/
+  CATEGORY - If present, this directory is treated as a category which can
+             contain projects (or other categories) and not a project itself.
+             (Note: You could have a single project by removing this file
+              from USER, but I don't recommend it.)
+  DISABLED - If present, this project or category will be skipped by
+             mcp_rebuild.  Useful for "turning off" projects that won't
+             compile right now.
+  src/
+    client/ - Client-specific source files go here.
+    server/ - Server-specific source files go here.
+    common/ - Shared source files go here.  Most of your code should be here.
+  bin/
+    client/ - Pre-compiled files needed by the client during reobfuscation go
+              here.  They will not be included in the client package.
+    server/ - Pre-compiled files needed by the server during reobfuscation go
+              here.  They will not be included in the server package.
+    common/ - Pre-compiled files needed by both client and server during
+              reobfuscation go here.  They will not be included in either
+              package.
+  resources/
+    client/ - Resources to pack into the client .zip go here.
+              (GUI resources belong here.)
+    server/ - Resources to pack into the server .zip go here.
+    common/ - Resources to pack into both .zips go here.
+              (Generic READMEs, LICENSEs, and such should be here.)
+  conf/
+    PROJECT_NAME    - Overrides the directory's name for the project.
+    VERSION         - A version number to include in the package name.
+    PACKAGE_NAME    - Overrides the default "Name" or "Name-version"
+                      name for the project's package.  The server tag and
+                      .zip extension will be applied after this.
+    HIDE_SOURCE     - If present, mcp_rebuild will not include the project's
+                      source in its package.  Be nice to your fellow modders,
+                      don't turn it on unless you need to.
+    PACKAGE_COMMAND - An alternative command for building the project's
+                      package.  Only a single line is supported, so complex
+                      packaging should reference a script here.
+
+===Questions, comments, hate mail, and so on===
+If you have any issues at all with mcp_rebuild, don't hesitate to contact me.
+You can report bugs and missing features as well as your eternal love or hate
+from the GitHub page:
+https://github.com/FunnyMan3595/mcp_rebuild
+
+If you prefer simple email, you can also reach me at funnyman3595@gmail.com.

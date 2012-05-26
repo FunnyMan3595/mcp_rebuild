@@ -1,156 +1,18 @@
 #!/usr/bin/env python
-# rebuild.py - A Python script for safe and easy rebuilding of MCP projects.
+# mcp_rebuild - A Python script for safe and easy rebuilding of MCP projects.
 # Copyright (c) 2011 FunnyMan3595 (Charlie Nolan)
-# This code is made avilable under the MIT license.  The full text of the
-# license can be found at the end of this file.
-
-# ===Summary===
-# The point of rebuild.py is to allow you to store your code outside of MCP's
-# dangerous src/ directory while allowing you to easily install it to MCP,
-# recompile, reobfuscate, and package your projects into individual mods.
-
-# ===Instructions===
-# To use rebuild.py:
-# 1. Create a new MCP directory, with both client and server files..
-# 2. If applicable, install ModLoader and Forge.
-# 3. Run decompile.sh to produce a clean src/ directory for MCP.
-# 4. Place rebuild.py in your MCP directory.
-# 5. Edit rebuild.py to configure it.  Configuration settings are located near
-#    the beginning of the file.  You'll want to change USER and TARGET, at
-#    least.  BASE might also be worth changing.
-# 6. Run rebuild.py once, and tell it that MCP's source directory is clean.
-#    This causes rebuild.py to record a "clean state" that it will reset MCP's
-#    source directory to before each compilation.
-# 7. Create one or more projects in your USER directory.  The format for a
-#    project can be found just after the configuration settings and constants.
-#    Search for "Project directory format".
-#    Note: If you didn't let rebuild.py create the directory for you, you need
-#    to create a CATEGORY file in it (contents are unimportant) so that
-#    rebuild.py does not consider it a single project.
-# 8. Run rebuild.py to build your projects.
-# 9. Fix the inevitable errors and return to step 8 until it actually *does*
-#    work.
-
-# NOTE: rebuild.py does not detect and package inner classes.  If you use inner
-#       classes, be sure to add them to the final package manually.
+# This code is made avilable under the MIT license.  See LICENSE for the full
+# details.
 
 import itertools, os, os.path, platform, shutil, subprocess, sys, tarfile, \
        zipfile
 
-# Seriously, configure it.  You'll be much happier if you set USER and TARGET
-# to something specific to you before commenting this out.  And you need to be
-# here to read the documentation anyway.
-print "rebuild.py has not been configured properly!  Please edit it and adjust"
-print "the configuration settings."
-sys.exit(3595)
+import settings
 
-
-# ===Configuration instructions===
-# All of the current configuration settings are paths to particular files and
-# directories.  Aside from BASE, they are specified relative to BASE, however
-# an absolute path will still work, even if you leave the relative() wrapper.
-#
-# If you want to specify a path relative to your home directory, you must run
-# it through os.path.expanduser for "~" to be treated as your home directory.
-#
-# Once you've finished configuration, comment out the three lines above.
-
-# Convenience functions.  These make the config settings look neater.
-# Don't change them unless you know what you're doing.
-absolute = os.path.abspath
-# Yes, this does work.  Even though it's defined before BASE is set, it will
-# have been set before relative() is called, and that's sufficient.
-relative = lambda rel: absolute(os.path.join(BASE, rel))
-
-# Base MCP directory.  If you want to be able to run this script from another
-# directory, be sure to set this.
-BASE = absolute(".")
-# (Yes, os.getcwd() would work identically here for the default behaviour, but
-#  this format is a bit more intuitive if you decide to modify it.)
-os.chdir(BASE)
-
-# Base directory for your projects.  DO NOT use one of MCP's own subdirectories
-# for this!
-# The format of this directory's contents is described just after the config
-# settings.
-USER = relative("user_src")
-
-# Where your projects' packages will go when they are created.  MCP's
-# subdirectories could be used here, but are not recommended.
-TARGET = relative("user_target")
-
-# Original source bundle, used to reset MCP's source directory to a clean state
-# before installing user files.
-SOURCE_BUNDLE = relative("source.tbz2")
-
-
-
-# === Standard configuration ends here ===
-# Constants after this point are not meant to be altered by the user.
-
-
-# This block creates the project directory and forces it to be seen as a
-# category.  You probably shouldn't mess with this.
-if not os.path.exists(USER):
-    os.makedirs(USER)
-
-    # Touch the CATEGORY file.
-    with open(os.path.join(USER, "CATEGORY"), "w") as catfile:
-        catfile.write("This is a placeholder file to mark this directory as a "
-                      "category, not a project.")
-
-# This block creates the package directory.  You probably shouldn't mess with
-# this.
-if not os.path.exists(TARGET):
-    os.makedirs(TARGET)
-
-
-# MCP's src directory; this probably shouldn't be changed.
-# This is the directory MCP will compile from.
-# THIS WILL BE NUKED FROM ORBIT EACH RUN.  All contents will be lost.
-# A clean copy will then be restored from SOURCE_BUNDLE.  If SOURCE_BUNDLE does
-# not exist, the script will offer to create it from a clean MCP_SRC.
-# The _REL version is used for bundling, to avoid storing absolute paths.
-MCP_SRC_REL = "src"
-MCP_SRC = relative(MCP_SRC_REL)
-# The obvious subdirectories.
-MCP_SRC_CLIENT = os.path.join(MCP_SRC, "minecraft")
-MCP_SRC_SERVER = os.path.join(MCP_SRC, "minecraft_server")
-
-
-# MCP's bin directory; this probably shouldn't be changed.
-# This is the directory MCP will obfuscate from.
-MCP_BIN = relative("bin")
-# The obvious subdirectories.
-MCP_BIN_CLIENT = os.path.join(MCP_BIN, "minecraft")
-MCP_BIN_SERVER = os.path.join(MCP_BIN, "minecraft_server")
-
-# MCP's reobf directory; this probably shouldn't be changed.
-# This is the directory MCP will place reobfuscated classes in.
-MCP_REOBF = relative("reobf")
-# The obvious subdirectories.
-MCP_REOBF_CLIENT = os.path.join(MCP_REOBF, "minecraft")
-MCP_REOBF_SERVER = os.path.join(MCP_REOBF, "minecraft_server")
-
-# Detects whether the script is running under windows; this probably shouldn't
-# be changed.
-WINDOWS = (platform.system() == "Windows")
-
-# How to recompile with MCP; this probably shouldn't be changed.
-if WINDOWS:
-    RECOMPILE = relative("recompile.bat")
-else:
-    RECOMPILE = relative("recompile.sh")
-
-# How to reobfuscate with MCP; this probably shouldn't be changed.
-if WINDOWS:
-    REOBFUSCATE = relative("reobfuscate.bat")
-else:
-    REOBFUSCATE = relative("reobfuscate.sh")
-
-# Exit codes; these probably shouldn't be changed.
+# Exit codes.
 # Negative: Failure before compiling.
 negative = itertools.count(-1, -1) # Returns 1, 2, 3, etc.
+UNCONFIGURED       = negative.next()
 BUNDLE_MISSING     = negative.next()
 UNSAFE_DELETE      = negative.next()
 BAD_BUNDLE         = negative.next()
@@ -162,51 +24,82 @@ BIN_INSTALL_FAILED = positive.next()
 REOBFUSCATE_FAILED = positive.next()
 PACKAGE_FAILED     = positive.next()
 
+if settings.UNCONFIGURED:
+    print "mcp_rebuild has not been configured properly!"
+    print "Edit config.py and try again."
+    sys.exit(UNCONFIGURED)
+
+# Convenience functions.  These make the settings settings easier to work with.
+absolute = lambda rawpath: os.path.abspath(os.path.expanduser(rawpath))
+relative = lambda relpath: absolute(os.path.join(BASE, relpath))
+
+# See settings.py for documenation on what these do.
+BASE = absolute(settings.BASE)
+USER = relative(settings.USER)
+TARGET = relative(settings.TARGET)
+SOURCE_BUNDLE = relative(settings.SOURCE_BUNDLE)
+
+# Most of this script assumes it's in the MCP directory, so let's go there.
+os.chdir(BASE)
+
+# Create the project directory and force it to be seen as a category.
+if not os.path.exists(USER):
+    os.makedirs(USER)
+
+    # Touch the CATEGORY file.
+    with open(os.path.join(USER, "CATEGORY"), "w") as catfile:
+        catfile.write("This is a placeholder file to mark this directory as a "
+                      "category, not a project.")
+
+# Create the package directory.
+if not os.path.exists(TARGET):
+    os.makedirs(TARGET)
 
 
-# ===Project directory format===
-#
+# MCP's src directory, the directory MCP will compile from.
+# THIS WILL BE NUKED FROM ORBIT EACH RUN.  All contents will be lost.
+# A clean copy will then be restored from SOURCE_BUNDLE.  If SOURCE_BUNDLE does
+# not exist, the script will offer to create it from a clean MCP_SRC.
+# Be EXTREMELY careful if you change this, and don't 'y' out of the run-time
+# confirmation without inspecting it!
+# The _REL version is used for bundling, to avoid storing absolute paths.
+MCP_SRC_REL = "src"
+MCP_SRC = relative(MCP_SRC_REL)
+# The obvious subdirectories.
+MCP_SRC_CLIENT = os.path.join(MCP_SRC, "minecraft")
+MCP_SRC_SERVER = os.path.join(MCP_SRC, "minecraft_server")
+
+
+# MCP's bin directory, the directory MCP will obfuscate from.
+MCP_BIN = relative("bin")
+# The obvious subdirectories.
+MCP_BIN_CLIENT = os.path.join(MCP_BIN, "minecraft")
+MCP_BIN_SERVER = os.path.join(MCP_BIN, "minecraft_server")
+
+# MCP's reobf directory, the directory MCP will place reobfuscated classes in.
+MCP_REOBF = relative("reobf")
+# The obvious subdirectories.
+MCP_REOBF_CLIENT = os.path.join(MCP_REOBF, "minecraft")
+MCP_REOBF_SERVER = os.path.join(MCP_REOBF, "minecraft_server")
+
+# Detect whether the script is running under windows.
+WINDOWS = (platform.system() == "Windows")
+
+# How to recompile with MCP.
+if WINDOWS:
+    RECOMPILE = relative("recompile.bat")
+else:
+    RECOMPILE = relative("recompile.sh")
+
+# How to reobfuscate with MCP.
+if WINDOWS:
+    REOBFUSCATE = relative("reobfuscate.bat")
+else:
+    REOBFUSCATE = relative("reobfuscate.sh")
+
+
 # This class is used to represent a user project, also known as a subdirectory
-# of USER.  Each project should have the following form, with all pieces
-# optional:
-#
-# $PROJECT_NAME/
-#   CATEGORY - If present, this directory is treated as a category which can
-#              contain projects (or other categories) and not a project itself.
-#              (Note: You could have a single project by removing this file
-#               from USER, but I don't recommend it.)
-#   DISABLED - If present, this project or category will be skipped by
-#              rebuild.py.  Useful for "turning off" projects that won't
-#              compile right now.
-#   src/
-#     client/ - Client-specific source files go here.
-#     server/ - Server-specific source files go here.
-#     common/ - Shared source files go here.  Most of your code should be here.
-#   bin/
-#     client/ - Pre-compiled files needed by the client during reobfuscation go
-#               here.  They will not be included in the client package.
-#     server/ - Pre-compiled files needed by the server during reobfuscation go
-#               here.  They will not be included in the server package.
-#     common/ - Pre-compiled files needed by both client and server during
-#               reobfuscation go here.  They will not be included in either
-#               package.
-#   resources/
-#     client/ - Resources to pack into the client .zip go here.
-#               (GUI resources belong here.)
-#     server/ - Resources to pack into the server .zip go here.
-#     common/ - Resources to pack into both .zips go here.
-#   conf/
-#     PROJECT_NAME    - Overrides the directory's name for the project.
-#     VERSION         - A version number to include in the package name.
-#     PACKAGE_NAME    - Overrides the default "Name" or "Name-version"
-#                       name for the project's package.  The server tag and
-#                       .zip extension will be applied after this.
-#     HIDE_SOURCE     - If present, rebuild.py will not include the project's
-#                       source in its package.
-#     PACKAGE_COMMAND - An alternative command for building the project's
-#                       package.  Only a single line is supported, so complex
-#                       packaging should reference a script here.
-
+# of USER.  The format is described in the README.
 class Project(object):
     def __init__(self, directory):
         self.dir = directory
@@ -616,11 +509,3 @@ for project in projects:
         package_count += 1
 
 print "%d project(s) compiled and packaged successfully." % package_count
-
-# LICENSE:
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
